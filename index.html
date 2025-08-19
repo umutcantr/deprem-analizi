@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deprem Analizi</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #333;
+            overflow: hidden;
+        }
+
+        /* Modern Header */
+        .header {
+            background: #1e3c72;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 0 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 1002;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .app-title {
+            color: white;
+            font-size: 26px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .header-icons {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .header-icon {
+            width: 42px;
+            height: 42px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #ffffff; /* İç renk - beyaz */
+            font-size: 18px;
+            text-shadow: 
+                0 0 2px #1e3c72,  /* İç mavi glow */
+                0 0 4px #1e3c72,  /* Orta mavi glow */
+                0 0 6px #1e3c72,  /* Dış mavi glow */
+                0 0 8px #1e3c72;  /* En dış mavi glow */
+            filter: drop-shadow(0 0 3px #1e3c72); /* Ek mavi gölge efekti */
+        }
+        
+        /* Hover efekti */
+        .header-icon:hover {
+            color: #f0f0f0; /* Hover'da biraz daha açık */
+            text-shadow: 
+                0 0 3px #2a5298,  /* Hover'da daha parlak mavi */
+                0 0 6px #2a5298,
+                0 0 9px #2a5298,
+                0 0 12px #2a5298;
+            filter: drop-shadow(0 0 5px #2a5298);
+        }
+        
+        /* Sidebar for file upload */
+        .sidebar {
+            position: fixed;
+            left: -400px;
+            top: 70px;
+            width: 400px;
+            height: calc(100vh - 70px);
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            transition: left 0.3s ease;
+            z-index: 9999;
+            padding: 25px;
+            box-sizing: border-box;
+        }
+        
+        .sidebar.open { left: 0; }
+        
+        .sidebar-content { color: white; text-align: center; }
+        
+        /* Sidebar overlay */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9998;
+        }
+        
+        .sidebar-overlay.active {
+            display: block;
+        }
+        
+        /* Info sidebar overlay */
+        .info-sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9998;
+        }
+        
+        .info-sidebar-overlay.active {
+            display: block;
+        }
+        
+        .sidebar h3 {
+            margin: 0 0 25px 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .file-input-container {
+            margin-bottom: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+        }
+        
+        .file-status {
+            margin: 15px 0;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+        
+        #file-status-text {
+            color: #ffffff;
+            font-size: 14px;
+        }
+        
+        .file-input {
+            width: 100%;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        /* Timeline */
+        #timeline-container {
+            width: 100%;
+            padding: 20px;
+            background: #616161;
+            position: relative;
+            z-index: 1001;
+            height: 80px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        #timeline {
+            position: relative;
+            width: 100%;
+            height: 15px;
+            background: linear-gradient(90deg, #757575 0%, #616161 100%);
+            border: 2px solid #9e9e9e;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        /* Timeline Cursor */
+        #timeline-cursor {
+            position: absolute;
+            left: 0;
+            top: -5px;
+            width: 8px;
+            height: calc(100% + 10px);
+            background: linear-gradient(180deg, #ff0000 0%, #ff6b6b 50%, #ff0000 100%);
+            border: 3px solid #ffffff;
+            border-radius: 4px;
+            box-shadow: 
+                0 0 10px rgba(255, 0, 0, 0.9),
+                0 0 20px rgba(255, 0, 0, 0.6),
+                0 0 30px rgba(255, 0, 0, 0.3);
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+        
+        #timeline-cursor:hover {
+            box-shadow: 
+                0 0 15px rgba(255, 0, 0, 1),
+                0 0 25px rgba(255, 0, 0, 0.8),
+                0 0 35px rgba(255, 0, 0, 0.5);
+        }
+
+        /* Timeline Day Line */
+        .timeline-day-line {
+            position: absolute;
+            top: -15px;
+            width: 2px;
+            height: 25px;
+            background: #000000;
+            z-index: 9999;
+        }
+
+        /* Timeline Day Number */
+        .timeline-day-number {
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #000000;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 1px 4px;
+            border-radius: 2px;
+            z-index: 10000;
+            white-space: nowrap;
+            min-width: 16px;
+            text-align: center;
+        }
+        
+        .timeline-dot {
+            position: absolute;
+            top: 3px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #f5f5f5;
+        }
+        
+        #timeline-time-label {
+            margin-top: 15px;
+            font-size: 24px;
+            font-weight: 700;
+            text-align: center;
+            color: #ffffff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            letter-spacing: 1px;
+        }
+        
+        /* Map */
+        #map {
+            width: 100vw;
+            height: calc(100vh - 150px);
+            position: absolute;
+            top: 150px;
+            left: 0;
+            z-index: 1;
+        }
+        
+        /* Sidebar Overlay */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9998;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Navigation Controls */
+        .navigation-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+        .nav-btn {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-btn:hover {
+            background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%);
+            transform: scale(1.1);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+
+        /* Speed Control */
+        .speed-control-top {
+            position: absolute;
+            top: 85px;
+            right: 20px;
+            z-index: 1000;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            border-radius: 15px;
+            padding: 8px 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .speed-control-top select {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            color: white;
+            padding: 6px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .speed-control-top select option {
+            background: #1e3c72;
+            color: white;
+        }
+
+        .speed-control-top label {
+            color: white;
+            font-size: 11px;
+            margin-right: 8px;
+            font-weight: 600;
+        }
+
+        /* Earthquake Legend - Sağ alt köşede */
+        .earthquake-legend {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            max-width: 280px;
+        }
+
+        .legend-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .legend-text {
+            flex: 1;
+        }
+
+        .legend-magnitude {
+            font-weight: 600;
+            color: #ffcc00;
+        }
+
+        /* Bilgi Sekmesi Stilleri */
+        .info-sidebar {
+            position: fixed;
+            left: -500px;
+            top: 70px;
+            width: 500px;
+            height: calc(100vh - 70px);
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            transition: left 0.3s ease;
+            z-index: 9999;
+            padding: 30px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            box-shadow: 5px 0 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .info-sidebar.open { 
+            left: 0; 
+            animation: slideInLeft 0.3s ease;
+        }
+        
+        @keyframes slideInLeft {
+            from { left: -500px; }
+            to { left: 0; }
+        }
+        
+        .project-description {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .project-description p {
+            line-height: 1.6;
+            margin: 0;
+            text-align: justify;
+        }
+        
+        .feedback-section, .support-section, .share-section {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .feedback-section h4, .support-section h4, .share-section h4 {
+            margin: 0 0 15px 0;
+            color: #ffcc00;
+            font-size: 18px;
+        }
+        
+        .feedback-section p, .support-section p, .share-section p {
+            margin: 0 0 15px 0;
+            line-height: 1.5;
+        }
+        
+        .info-sidebar .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            margin: 5px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            color: white;
+            box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(78, 205, 196, 0.4);
+        }
+        
+        .btn-support {
+            background: linear-gradient(135deg, #ff9ff3, #f368e0);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 159, 243, 0.3);
+        }
+        
+        .btn-support:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 159, 243, 0.4);
+        }
+        
+        .btn-share {
+            background: linear-gradient(135deg, #54a0ff, #2e86de);
+            color: white;
+            box-shadow: 0 4px 15px rgba(84, 160, 255, 0.3);
+            margin: 5px;
+            padding: 10px 15px;
+            font-size: 13px;
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        .btn-share:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(84, 160, 255, 0.4);
+        }
+        
+        .share-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        /* Geri Bildirim Popup Stilleri */
+        .feedback-popup {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .feedback-popup.show {
+            display: flex;
+        }
+        
+        .popup-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .popup-header h3 {
+            margin: 0;
+            color: #1e3c72;
+            font-size: 24px;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            padding: 5px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        
+        .close-btn:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        /* 5 Yıldız Değerlendirme Sistemi */
+        .star-rating {
+            display: flex;
+            flex-direction: row-reverse;
+            gap: 5px;
+            justify-content: center;
+        }
+        
+        .star-rating input {
+            display: none;
+        }
+        
+        .star-rating label {
+            font-size: 35px;
+            color: #ddd;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        
+        .star-rating label:hover {
+            color: #ffcc00;
+            transform: scale(1.1);
+        }
+        
+        .star-rating input:checked ~ label {
+            color: #ffcc00;
+        }
+        
+        .star-rating label::before {
+            content: "☆";
+        }
+        
+        .star-rating input:checked ~ label::before {
+            content: "★";
+        }
+        
+        .star-rating label:hover::before {
+            content: "★";
+        }
+        
+        /* Form Grup Stilleri */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #1e3c72;
+            box-shadow: 0 0 0 3px rgba(30, 60, 114, 0.1);
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+        }
+        
+        /* Başlık tıklanabilir stil */
+        .app-title {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+            position: relative;
+        }
+        
+        .app-title:hover {
+            color: #ffcc00;
+            text-shadow: 2px 2px 4px rgba(255, 204, 0, 0.3);
+            transform: scale(1.05);
+        }
+        
+
+    </style>
+</head>
+<body>
+            <div class="header">
+            <div class="header-left">
+                <div class="app-title" id="project-title">Deprem Analizi</div>
+                <div class="header-icons">
+                    <div class="header-icon" id="file-upload-icon" title="Dosya Yükle">📁</div>
+                    <div class="header-icon" id="play-pause-btn" title="Oynat/Duraklat">▶️</div>
+                    <div class="header-icon" id="reset-icon" title="Verileri Temizle">🔄</div>
+                </div>
+            </div>
+        </div>
+
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-content">
+            <h3>📁 KML Dosya Yükleme</h3>
+    <div class="file-input-container">
+            <input type="file" id="kml-input" accept=".kml" multiple class="file-input" />
+                <div class="file-status">
+                    <span id="file-status-text">Dosya seçilmedi</span>
+            </div>
+        </div>
+        <button id="load-kml-btn" class="btn btn-primary">KML Yükle</button>
+        </div>
+    </div>
+
+    <!-- Bilgi Sekmesi -->
+    <div class="info-sidebar" id="info-sidebar">
+        <div class="sidebar-content">
+            <h3>ℹ️ Proje Hakkında</h3>
+            
+            <div class="project-description">
+                <p>Karmaşık sismik verileri anlamlandıran web sitesi. Depremlerin <strong>öncü ve artçı şoklarını</strong> zaman ve mekân ilişkisi içinde görselleştirerek, uzmanların ve araştırmacıların deprem dinamiklerini daha net görmesini sağlayarak <strong>gelecekteki deprem riskleri daha doğru değerlendirebilir.</strong></p>
+            </div>
+
+            <div class="feedback-section">
+                <h4>💬 Geri Bildirim</h4>
+                <p>Projeyi geliştirmemize yardımcı olun!</p>
+                <button id="feedback-btn" class="btn btn-secondary">Geri Bildirim Ver</button>
+            </div>
+
+
+
+            <div class="share-section">
+                <h4>📤 Paylaş</h4>
+                <p>Bu projeyi arkadaşlarınızla paylaşın!</p>
+                <div class="share-buttons">
+                    <button id="copy-link-btn" class="btn btn-share">🔗 Linki Kopyala</button>
+                    <button id="share-twitter-btn" class="btn btn-share">🐦 Twitter</button>
+                    <button id="share-facebook-btn" class="btn btn-share">📘 Facebook</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Geri Bildirim Popup -->
+    <div class="feedback-popup" id="feedback-popup">
+        <div class="popup-content">
+            <div class="popup-header">
+                <h3>💬 Geri Bildirim</h3>
+                <button class="close-btn" id="close-feedback-popup">×</button>
+            </div>
+            <form id="feedback-form" action="https://formspree.io/f/meozborp" method="POST">
+                <div class="form-group">
+                    <label for="feedback-name">Adınız (İsteğe bağlı):</label>
+                    <input type="text" id="feedback-name" name="name" placeholder="Adınız">
+                </div>
+                <div class="form-group">
+                    <label for="feedback-email">E-posta (İsteğe bağlı):</label>
+                    <input type="email" id="feedback-email" name="email" placeholder="E-posta adresiniz">
+                </div>
+                <div class="form-group">
+                    <label>Uygulama Değerlendirmesi:</label>
+                    <div class="star-rating">
+                        <input type="radio" id="star5" name="rating" value="5" />
+                        <label for="star5" title="5 yıldız">★</label>
+                        <input type="radio" id="star4" name="rating" value="4" />
+                        <label for="star4" title="4 yıldız">★</label>
+                        <input type="radio" id="star3" name="rating" value="3" />
+                        <label for="star3" title="3 yıldız">★</label>
+                        <input type="radio" id="star2" name="rating" value="2" />
+                        <label for="star2" title="2 yıldız">★</label>
+                        <input type="radio" id="star1" name="rating" value="1" />
+                        <label for="star1" title="1 yıldız">★</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="feedback-type">Bildirim Türü:</label>
+                    <select id="feedback-type" name="type">
+                        <option value="bug">🐛 Hata Bildirimi</option>
+                        <option value="feature">💡 Özellik Önerisi</option>
+                        <option value="improvement">🔧 İyileştirme</option>
+                        <option value="other">📝 Diğer</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="feedback-message">Mesajınız:</label>
+                    <textarea id="feedback-message" name="message" rows="4" placeholder="Geri bildiriminizi buraya yazın..." required></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Gönder</button>
+                    <button type="button" class="btn btn-secondary" id="cancel-feedback">İptal</button>
+                </div>
+            </form>
+    </div>
+</div>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+    <div class="info-sidebar-overlay" id="info-sidebar-overlay"></div>
+
+<div id="timeline-container">
+        <div id="timeline">
+            <div id="timeline-cursor"></div>
+        </div>
+        <div id="timeline-time-label">Yükleniyor...</div>
+        
+        <!-- Speed Control - Sağ üst köşede zaman çizelgesinin altında -->
+        <div class="speed-control-top">
+            <label for="speed-select">Hız:</label>
+            <select id="speed-select">
+                <option value="0.5">0.5x</option>
+                <option value="1" selected>1x</option>
+                <option value="3">3x</option>
+                <option value="9">9x</option>
+            </select>
+    </div>
+</div>
+
+<div id="map"></div>
+
+    <!-- Navigation Controls -->
+    <div class="navigation-controls">
+        <button class="nav-btn" id="prev-location-btn" title="Önceki Konum">⏮️</button>
+        <button class="nav-btn" id="next-location-btn" title="Sonraki Konum">⏭️</button>
+    </div>
+
+    <!-- Earthquake Legend - Sağ alt köşede -->
+    <div class="earthquake-legend">
+        <div class="legend-title">🌍 Deprem Büyüklüğü</div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ff0000;"></div>
+            <div class="legend-text"><span class="legend-magnitude">≥6.0</span> - Çok Güçlü</div>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ff6600;"></div>
+            <div class="legend-text"><span class="legend-magnitude">≥5.0</span> - Güçlü</div>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ffcc00;"></div>
+            <div class="legend-text"><span class="legend-magnitude">≥4.0</span> - Orta</div>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #00cc00;"></div>
+            <div class="legend-text"><span class="legend-magnitude">≥3.0</span> - Hafif</div>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #0066cc;"></div>
+            <div class="legend-text"><span class="legend-magnitude">≥2.0</span> - Çok Hafif</div>
+        </div>
+    </div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
