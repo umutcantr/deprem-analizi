@@ -57,11 +57,18 @@ const loadDefaultKML = async () => {
         }
         
         logInfo(`KML dosyası başarıyla yüklendi (${kmlText.length} karakter)`, 'loadDefaultKML');
-        parseKMLTextAndShowOnMap(kmlText, 'balikesir-sindirgi-10.08.25.kml');
+        
+        // Try to parse KML with detailed error handling
+        try {
+            parseKMLTextAndShowOnMap(kmlText, 'balikesir-sindirgi-10.08.25.kml');
+        } catch (parseError) {
+            logError('KML parse hatası', parseError, 'loadDefaultKML');
+            throw new Error(`KML parse hatası: ${parseError.message}`);
+        }
         
     } catch (error) {
         logError('Varsayılan KML yükleme hatası', error, 'loadDefaultKML');
-        showMessage(`Varsayılan KML yüklenemedi. Lütfen kendi dosyanızı seçin.`, true);
+        showMessage(`Varsayılan KML yüklenemedi: ${error.message}`, true);
         
         // Show modal again if default KML fails
         setTimeout(() => {
@@ -400,6 +407,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error('KML parse hatası');
             }
             
+            logInfo('KML XML parse edildi', 'parseKMLTextAndShowOnMap');
+            
             const placemarks = kmlDoc.getElementsByTagName('Placemark');
             if (!placemarks || placemarks.length === 0) {
                 throw new Error('KML dosyasında Placemark bulunamadı');
@@ -408,9 +417,12 @@ document.addEventListener("DOMContentLoaded", () => {
             logInfo(`${placemarks.length} Placemark bulundu`, 'parseKMLTextAndShowOnMap');
             
             // Clear existing data
+            logInfo('Mevcut veriler temizleniyor...', 'parseKMLTextAndShowOnMap');
             resetMapData();
+            logInfo('Mevcut veriler temizlendi', 'parseKMLTextAndShowOnMap');
             
             const locations = [];
+            let validPlacemarks = 0;
             
             for (let i = 0; i < placemarks.length; i++) {
                 try {
@@ -418,25 +430,40 @@ document.addEventListener("DOMContentLoaded", () => {
                     
                     // Get name and extract magnitude
                     const nameElement = placemark.getElementsByTagName('name')[0];
-                    if (!nameElement) continue;
+                    if (!nameElement) {
+                        logWarning(`Placemark ${i}: name elementi bulunamadı`, 'parseKMLTextAndShowOnMap');
+                        continue;
+                    }
                     
                     const name = nameElement.textContent.trim();
                     const magnitudeMatch = name.match(/^([\d.]+)/);
-                    if (!magnitudeMatch) continue;
+                    if (!magnitudeMatch) {
+                        logWarning(`Placemark ${i}: magnitude bulunamadı: ${name}`, 'parseKMLTextAndShowOnMap');
+                        continue;
+                    }
                     
                     const magnitude = parseFloat(magnitudeMatch[1]);
                     
                     // Get description and extract time
                     const descriptionElement = placemark.getElementsByTagName('description')[0];
-                    if (!descriptionElement) continue;
+                    if (!descriptionElement) {
+                        logWarning(`Placemark ${i}: description elementi bulunamadı`, 'parseKMLTextAndShowOnMap');
+                        continue;
+                    }
                     
                     const description = descriptionElement.textContent;
                     const timeMatch = description.match(/Origin-Time:\s*(\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2})/);
-                    if (!timeMatch) continue;
+                    if (!timeMatch) {
+                        logWarning(`Placemark ${i}: zaman bilgisi bulunamadı`, 'parseKMLTextAndShowOnMap');
+                        continue;
+                    }
                     
                     const timeStr = timeMatch[1];
                     const timeParts = timeStr.match(/(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/);
-                    if (!timeParts) continue;
+                    if (!timeParts) {
+                        logWarning(`Placemark ${i}: zaman formatı geçersiz: ${timeStr}`, 'parseKMLTextAndShowOnMap');
+                        continue;
+                    }
                     
                     const [, year, month, day, hour, minute, second] = timeParts;
                     
@@ -458,15 +485,24 @@ document.addEventListener("DOMContentLoaded", () => {
                     
                     // Get coordinates
                     const coordinatesElement = placemark.getElementsByTagName('coordinates')[0];
-                    if (!coordinatesElement) continue;
+                    if (!coordinatesElement) {
+                        logWarning(`Placemark ${i}: coordinates elementi bulunamadı`, 'parseKMLTextAndShowOnMap');
+                        continue;
+                    }
                     
                     const coords = coordinatesElement.textContent.trim().split(',');
-                    if (coords.length < 2) continue;
+                    if (coords.length < 2) {
+                        logWarning(`Placemark ${i}: yetersiz koordinat: ${coords.length}`, 'parseKMLTextAndShowOnMap');
+                        continue;
+                    }
                     
                     const lng = parseFloat(coords[0]);
                     const lat = parseFloat(coords[1]);
                     
-                    if (isNaN(lng) || isNaN(lat)) continue;
+                    if (isNaN(lng) || isNaN(lat)) {
+                        logWarning(`Placemark ${i}: geçersiz koordinat: ${coords[0]}, ${coords[1]}`, 'parseKMLTextAndShowOnMap');
+                        continue;
+                    }
                     
                     const location = {
                         id: `loc_${i}`,
@@ -479,17 +515,21 @@ document.addEventListener("DOMContentLoaded", () => {
                     };
                     
                     locations.push(location);
+                    validPlacemarks++;
                     
                 } catch (placemarkError) {
                     logWarning(`Placemark ${i} parse hatası: ${placemarkError.message}`, 'parseKMLTextAndShowOnMap');
                 }
             }
             
+            logInfo(`${validPlacemarks} geçerli Placemark işlendi`, 'parseKMLTextAndShowOnMap');
+            
             if (locations.length === 0) {
                 throw new Error('Geçerli konum bulunamadı');
             }
             
             // Sort locations by time
+            logInfo('Konumlar zamana göre sıralanıyor...', 'parseKMLTextAndShowOnMap');
             locations.sort((a, b) => a.timestamp - b.timestamp);
             
             // Store locations globally
@@ -506,17 +546,27 @@ document.addEventListener("DOMContentLoaded", () => {
             window.duration = duration;
             window.currentTimeSeconds = startTime;
             
+            logInfo(`Zaman aralığı: ${formatTurkishDate(startTime)} - ${formatTurkishDate(endTime)}`, 'parseKMLTextAndShowOnMap');
+            
             // Initialize timeline and show first location
+            logInfo('Timeline güncelleniyor...', 'parseKMLTextAndShowOnMap');
             updateTimeline();
+            logInfo('Timeline güncellendi', 'parseKMLTextAndShowOnMap');
+            
+            logInfo('Harita marker\'ları güncelleniyor...', 'parseKMLTextAndShowOnMap');
             updateMapMarkers();
+            logInfo('Harita marker\'ları güncellendi', 'parseKMLTextAndShowOnMap');
             
             // Fit map to all locations
+            logInfo('Harita konumlara göre ayarlanıyor...', 'parseKMLTextAndShowOnMap');
             fitMapToLocations(locations);
+            logInfo('Harita konumlara göre ayarlandı', 'parseKMLTextAndShowOnMap');
             
             showMessage(`${sourceName}: ${locations.length} konum yüklendi. Animasyon başlatılıyor...`);
             
             setTimeout(() => {
                 try {
+                    logInfo('Animasyon başlatılıyor...', 'parseKMLTextAndShowOnMap');
                     window.isAnimationPaused = false;
                     startAnimation();
                     if (playPauseBtn) { playPauseBtn.innerHTML = '⏸️'; }
@@ -532,6 +582,7 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (error) {
             logError('KML parse hatası', error, 'parseKMLTextAndShowOnMap');
             showMessage(`KML dosyası işlenirken hata oluştu: ${error.message}`, true);
+            throw error; // Re-throw to be caught by loadDefaultKML
         }
     };
 
