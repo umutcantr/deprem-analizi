@@ -308,10 +308,8 @@ const loadDefaultKML = async () => {
             const parsedData = parseKMLTextAndShowOnMap(kmlText, 'balikesir-sindirgi-10.08.25.kml');
             logInfo('KML parse başarılı, veriler hazırlanıyor...', 'loadDefaultKML');
             
-            // Store the parsed data globally for later use
-            window.parsedKMLData = parsedData;
-            
-            showMessage('KML dosyası başarıyla yüklendi. Veriler hazırlanıyor...', false);
+            // Update UI immediately with parsed data
+            updateUIWithParsedData(parsedData);
             
         } catch (parseError) {
             logError('KML parse hatası', parseError, 'loadDefaultKML');
@@ -329,6 +327,39 @@ const loadDefaultKML = async () => {
                 selectionModal.classList.remove('hidden');
             }
         }, 2000);
+    }
+};
+
+// Function to update UI with parsed data
+const updateUIWithParsedData = (parsedData) => {
+    try {
+        logInfo('UI güncelleniyor...', 'updateUIWithParsedData');
+        
+        // Extract data from parsed KML
+        const { locations: parsedLocations, startTime, endTime, duration: parsedDuration } = parsedData;
+        
+        // Store locations globally
+        window.locations = parsedLocations;
+        window.currentLocationIndex = 0;
+        window.startTimeSeconds = startTime;
+        window.endTimeSeconds = endTime;
+        window.duration = parsedDuration;
+        window.currentTimeSeconds = startTime;
+        
+        logInfo('Global değişkenler güncellendi', 'updateUIWithParsedData');
+        
+        // Always store the parsed data for later use when all functions are defined
+        window.pendingUIUpdate = {
+            locations: parsedLocations,
+            startTime: startTime,
+            endTime: endTime,
+            duration: parsedDuration
+        };
+        
+        logInfo('KML verisi saklandı, ana fonksiyon çalıştığında UI güncellenecek', 'updateUIWithParsedData');
+        
+    } catch (error) {
+        logError('UI güncelleme hatası', error, 'updateUIWithParsedData');
     }
 };
 
@@ -616,6 +647,76 @@ document.addEventListener("DOMContentLoaded", () => {
             logError('Parse edilen veri ile UI güncelleme hatası', error, 'DOMContentLoaded');
         }
     }
+    
+    // Check if we have pending UI update from KML parsing
+    logInfo('pendingUIUpdate kontrol ediliyor...', 'DOMContentLoaded');
+    logInfo(`window.pendingUIUpdate değeri: ${JSON.stringify(window.pendingUIUpdate)}`, 'DOMContentLoaded');
+    
+    // Function to process pending UI update
+    const processPendingUIUpdate = () => {
+        if (window.pendingUIUpdate) {
+            logInfo('Bekleyen UI güncellemesi bulundu, UI güncelleniyor...', 'DOMContentLoaded');
+            
+            try {
+                const { locations: parsedLocations, startTime, endTime, duration: parsedDuration } = window.pendingUIUpdate;
+                
+                // Store locations globally
+                window.locations = parsedLocations;
+                window.currentLocationIndex = 0;
+                window.startTimeSeconds = startTime;
+                window.endTimeSeconds = endTime;
+                window.duration = parsedDuration;
+                window.currentTimeSeconds = startTime;
+                
+                logInfo('Global değişkenler güncellendi', 'DOMContentLoaded');
+                
+                // Update UI
+                updateTimeline();
+                updateMapMarkers();
+                fitMapToLocations(parsedLocations);
+                
+                showMessage(`Balıkesir KML: ${parsedLocations.length} konum yüklendi. Animasyon başlatılıyor...`);
+                
+                // Start animation after a short delay
+                setTimeout(() => {
+                    try {
+                        window.isAnimationPaused = false;
+                        startAnimation();
+                        if (playPauseBtn) { playPauseBtn.innerHTML = '⏸️'; }
+                        logInfo('Animasyon otomatik başlatıldı', 'DOMContentLoaded');
+                    } catch (animationError) {
+                        logError('Otomatik animasyon başlatma hatası', animationError, 'DOMContentLoaded');
+                        showMessage('Animasyon başlatılamadı, manuel olarak başlatabilirsiniz.', true);
+                    }
+                }, 1000);
+                
+                // Clear the pending update
+                delete window.pendingUIUpdate;
+                
+            } catch (error) {
+                logError('Bekleyen UI güncelleme hatası', error, 'DOMContentLoaded');
+            }
+        } else {
+            logInfo('Bekleyen UI güncellemesi bulunamadı', 'DOMContentLoaded');
+        }
+    };
+    
+    // Process immediately if available
+    processPendingUIUpdate();
+    
+    // Also check periodically for any new pending updates
+    const checkPendingUpdates = setInterval(() => {
+        if (window.pendingUIUpdate) {
+            logInfo('Yeni bekleyen UI güncellemesi bulundu, işleniyor...', 'DOMContentLoaded');
+            processPendingUIUpdate();
+        }
+    }, 1000); // Check every second
+    
+    // Clean up interval after 30 seconds
+    setTimeout(() => {
+        clearInterval(checkPendingUpdates);
+        logInfo('Bekleyen güncelleme kontrolü durduruldu', 'DOMContentLoaded');
+    }, 30000);
 
     // KML parsing function
     // This function is now defined above and called from loadDefaultKML
@@ -635,6 +736,17 @@ document.addEventListener("DOMContentLoaded", () => {
             
         } catch (error) {
             logError('Harita ayarlama hatası', error, 'fitMapToLocations');
+        }
+    };
+
+    // Helper function to calculate popup duration based on animation speed
+    const getPopupDuration = (animationSpeed) => {
+        switch (animationSpeed) {
+            case 0.5: return 1500; // 1.5 saniye
+            case 1: return 1000;   // 1 saniye
+            case 3: return 500;    // 0.5 saniye
+            case 9: return 250;    // 0.25 saniye
+            default: return 1000;
         }
     };
 
@@ -674,6 +786,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 clearInterval(window.animationInterval);
                 window.animationInterval = null;
             }
+            // Update button icon to play
+            if (playPauseBtn) playPauseBtn.innerHTML = '▶️';
             logInfo('Animasyon duraklatıldı', 'pauseAnimation');
         } catch (error) {
             logError('Animasyon duraklatma hatası', error, 'pauseAnimation');
@@ -684,6 +798,8 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             window.isAnimationPaused = false;
             startAnimation();
+            // Update button icon to pause
+            if (playPauseBtn) playPauseBtn.innerHTML = '⏸️';
             logInfo('Animasyon devam ettirildi', 'resumeAnimation');
         } catch (error) {
             logError('Animasyon devam ettirme hatası', error, 'resumeAnimation');
@@ -699,7 +815,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (window.currentTimeSeconds >= window.endTimeSeconds) {
                 window.currentTimeSeconds = window.endTimeSeconds;
                 pauseAnimation();
-                if (playPauseBtn) playPauseBtn.innerHTML = '▶️';
+                // Button icon is already updated in pauseAnimation function
                 logInfo('Animasyon tamamlandı', 'updateAnimation');
                 return;
             }
@@ -736,25 +852,32 @@ document.addEventListener("DOMContentLoaded", () => {
                     marker.bindPopup(`<b>${loc.name}</b><br>Büyüklük: ${loc.magnitude}<br>Zaman: ${formatTurkishDate(loc.timestamp)}`);
                     markers[loc.id] = marker;
                     
-                                         // Show popup for newly appeared locations (within last 5 seconds)
-                     if (loc.timestamp >= currentTime - 5 && window.animationSpeed !== 9) {
+                    // Show popup for newly appeared locations (within last timeStep seconds)
+                    const timeStep = 900 * window.animationSpeed; // Same as in startAnimation
+                    if (loc.timestamp >= currentTime - timeStep && loc.timestamp <= currentTime) {
+                        // Calculate popup duration based on animation speed
+                        const popupDuration = getPopupDuration(window.animationSpeed);
+                        
+                        // Show popup after a short delay to ensure marker is visible
                         setTimeout(() => {
-                            marker.openPopup();
-                            
-                                                     let popupDuration;
-                         switch (window.animationSpeed) {
-                             case 0.5: popupDuration = 2000; break;
-                             case 1: popupDuration = 1000; break;
-                             case 3: popupDuration = 500; break;
-                             case 9: popupDuration = 250; break;
-                             default: popupDuration = 1000;
-                         }
-                            
-                            setTimeout(() => {
-                                marker.closePopup();
-                            }, popupDuration);
-                            
-                        }, 100);
+                            try {
+                                marker.openPopup();
+                                logInfo(`Popup gösterildi: ${loc.name} (${popupDuration}ms, ${window.animationSpeed}x hız)`, 'updateMapMarkers');
+                                
+                                // Auto-close popup after calculated duration
+                                setTimeout(() => {
+                                    try {
+                                        marker.closePopup();
+                                        logInfo(`Popup kapatıldı: ${loc.name}`, 'updateMapMarkers');
+                                    } catch (closeError) {
+                                        logError('Popup kapatma hatası', closeError, 'updateMapMarkers');
+                                    }
+                                }, popupDuration);
+                                
+                            } catch (openError) {
+                                logError('Popup açma hatası', openError, 'updateMapMarkers');
+                            }
+                        }, 200); // 200ms delay to ensure marker is fully loaded
                     }
                 }
             });
@@ -1004,6 +1127,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const wasPaused = window.isAnimationPaused;
         const currentTime = window.currentTimeSeconds;
         
+        // Close all existing popups when speed changes
+        Object.values(markers).forEach(marker => {
+            try {
+                marker.closePopup();
+            } catch (error) {
+                // Ignore errors when closing popups
+            }
+        });
+        
         window.animationSpeed = parseFloat(speedSelect.value);
         
         if (!wasPaused) {
@@ -1012,7 +1144,11 @@ document.addEventListener("DOMContentLoaded", () => {
             startAnimation();
         }
         
-        showMessage(`Animasyon hızı: ${window.animationSpeed}x`);
+        // Update map markers to show popups with new duration
+        updateMapMarkers();
+        
+        showMessage(`Animasyon hızı: ${window.animationSpeed}x (Popup süresi: ${getPopupDuration(window.animationSpeed)}ms)`);
+        logInfo(`Animasyon hızı güncellendi: ${window.animationSpeed}x, popup süresi: ${getPopupDuration(window.animationSpeed)}ms`, 'updateAnimationSpeed');
     };
 
     // Event Listeners
@@ -1083,7 +1219,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                     
                     logInfo(`KML dosyası başarıyla okundu: ${kmlText.length} karakter`, 'KML_LOAD');
-                    parseKMLTextAndShowOnMap(kmlText, file.name);
+                    
+                    // Parse KML and update UI
+                    const parsedData = parseKMLTextAndShowOnMap(kmlText, file.name);
+                    updateUIWithParsedData(parsedData);
                     
                     // KML dosyası başarıyla yüklendiyse sidebar'ı kapat
                     const sidebar = document.getElementById('sidebar');
