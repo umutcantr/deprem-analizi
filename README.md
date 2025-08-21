@@ -62,7 +62,7 @@ Karmaşık sismik verileri anlamlandıran web sitesi. Depremlerin **öncü ve ar
 - **Canvas Rendering**: Performanslı marker çizimi
 
 ### **Veri İşleme**
-- **KML Parser**: XML parsing ve veri çıkarma
+- **KML Parser**: KML parsing ve veri çıkarma
 - **Date Handling**: Türkçe tarih formatı
 - **Coordinate Validation**: Koordinat sınırları kontrolü
 

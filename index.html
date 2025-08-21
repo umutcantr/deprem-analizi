@@ -14,6 +14,101 @@
             overflow: hidden;
         }
 
+        /* Selection Modal Styles */
+        .selection-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+            visibility: visible;
+            transition: all 0.3s ease;
+        }
+
+        .selection-modal.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .modal-title {
+            color: white;
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .selection-options {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .selection-option {
+            flex: 1;
+            min-width: 250px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            padding: 30px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+            backdrop-filter: blur(10px);
+        }
+
+        .selection-option:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .selection-option.selected {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: #ffcc00;
+            box-shadow: 0 0 20px rgba(255, 204, 0, 0.5);
+        }
+
+        .option-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .option-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #ffcc00;
+        }
+
+        .option-description {
+            font-size: 14px;
+            line-height: 1.5;
+            opacity: 0.9;
+        }
+
         /* Modern Header */
         .header {
             background: #1e3c72;
@@ -709,27 +804,46 @@
     </style>
 </head>
 <body>
-            <div class="header">
-            <div class="header-left">
-                <div class="app-title" id="project-title">Deprem Analizi</div>
-                <div class="header-icons">
-                    <div class="header-icon" id="file-upload-icon" title="Dosya Yükle">📁</div>
-                    <div class="header-icon" id="play-pause-btn" title="Oynat/Duraklat">▶️</div>
-                    <div class="header-icon" id="reset-icon" title="Verileri Temizle">🔄</div>
+    <!-- Selection Modal -->
+    <div class="selection-modal" id="selection-modal">
+        <div class="modal-content">
+            <h1 class="modal-title">🌍 Deprem Analizi</h1>
+            <div class="selection-options">
+                <div class="selection-option" id="default-option">
+                    <span class="option-icon">📊</span>
+                    <div class="option-title">Varsayılan KML Dosyasını Kullanacağım</div>
+                    <div class="option-description">Balıkesir Sındırgı deprem verileri ile analizi başlatın</div>
+                </div>
+                <div class="selection-option" id="custom-option">
+                    <span class="option-icon">📁</span>
+                    <div class="option-title">Kendi KML Dosyamı Yükleyeceğim</div>
+                    <div class="option-description">Kendi deprem verilerinizi yükleyin ve analiz edin</div>
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="header">
+        <div class="header-left">
+            <div class="app-title" id="project-title">Deprem Analizi</div>
+            <div class="header-icons">
+                <div class="header-icon" id="file-upload-icon" title="Dosya Yükle">📁</div>
+                <div class="header-icon" id="play-pause-btn" title="Oynat/Duraklat">▶️</div>
+                <div class="header-icon" id="reset-icon" title="Verileri Temizle">🔄</div>
+            </div>
+        </div>
+    </div>
 
     <div class="sidebar" id="sidebar">
         <div class="sidebar-content">
             <h3>📁 KML Dosya Yükleme</h3>
-    <div class="file-input-container">
-            <input type="file" id="kml-input" accept=".kml" multiple class="file-input" />
+            <div class="file-input-container">
+                <input type="file" id="kml-input" accept=".kml" multiple class="file-input" />
                 <div class="file-status">
                     <span id="file-status-text">Dosya seçilmedi</span>
+                </div>
             </div>
-        </div>
-        <button id="load-kml-btn" class="btn btn-primary">KML Yükle</button>
+            <button id="load-kml-btn" class="btn btn-primary">KML Yükle</button>
         </div>
     </div>
 
@@ -747,8 +861,6 @@
                 <p>Projeyi geliştirmemize yardımcı olun!</p>
                 <button id="feedback-btn" class="btn btn-secondary">Geri Bildirim Ver</button>
             </div>
-
-
 
             <div class="share-section">
                 <h4>📤 Paylaş</h4>
@@ -811,13 +923,13 @@
                     <button type="button" class="btn btn-secondary" id="cancel-feedback">İptal</button>
                 </div>
             </form>
+        </div>
     </div>
-</div>
 
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
     <div class="info-sidebar-overlay" id="info-sidebar-overlay"></div>
 
-<div id="timeline-container">
+    <div id="timeline-container">
         <div id="timeline">
             <div id="timeline-cursor"></div>
         </div>
@@ -832,10 +944,10 @@
                 <option value="3">3x</option>
                 <option value="9">9x</option>
             </select>
+        </div>
     </div>
-</div>
 
-<div id="map"></div>
+    <div id="map"></div>
 
     <!-- Navigation Controls -->
     <div class="navigation-controls">
@@ -868,7 +980,7 @@
         </div>
     </div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

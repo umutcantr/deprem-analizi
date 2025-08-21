@@ -40,6 +40,77 @@ const logInfo = (message, context = '') => {
     console.log('ℹ️ BİLGİ:', { timestamp, message, context });
 };
 
+// Default KML loading function
+const loadDefaultKML = async () => {
+    try {
+        logInfo('Varsayılan KML dosyası yükleniyor...', 'loadDefaultKML');
+        showMessage('Varsayılan KML dosyası yükleniyor...');
+        
+        const response = await fetch('./balikesir-sindirgi-10.08.25.kml');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const kmlText = await response.text();
+        if (!kmlText || kmlText.trim().length === 0) {
+            throw new Error('KML dosyası boş');
+        }
+        
+        logInfo(`KML dosyası başarıyla yüklendi (${kmlText.length} karakter)`, 'loadDefaultKML');
+        parseKMLTextAndShowOnMap(kmlText, 'balikesir-sindirgi-10.08.25.kml');
+        
+    } catch (error) {
+        logError('Varsayılan KML yükleme hatası', error, 'loadDefaultKML');
+        showMessage(`Varsayılan KML yüklenemedi. Lütfen kendi dosyanızı seçin.`, true);
+        
+        // Show modal again if default KML fails
+        setTimeout(() => {
+            const selectionModal = document.getElementById('selection-modal');
+            if (selectionModal) {
+                selectionModal.classList.remove('hidden');
+            }
+        }, 2000);
+    }
+};
+
+// Selection Modal Functions
+const initializeSelectionModal = () => {
+    try {
+        const defaultOption = document.getElementById('default-option');
+        const customOption = document.getElementById('custom-option');
+        const selectionModal = document.getElementById('selection-modal');
+        
+        // Option selection handlers
+        defaultOption.addEventListener('click', () => {
+            logInfo('Varsayılan seçenek seçildi', 'initializeSelectionModal');
+            
+            // Hide modal and load default KML
+            selectionModal.classList.add('hidden');
+            setTimeout(() => {
+                loadDefaultKML();
+            }, 300);
+        });
+        
+        customOption.addEventListener('click', () => {
+            logInfo('Özel dosya seçeneği seçildi', 'initializeSelectionModal');
+            
+            // Hide modal and open file upload sidebar
+            selectionModal.classList.add('hidden');
+            setTimeout(() => {
+                const sidebar = document.getElementById('sidebar');
+                const sidebarOverlay = document.getElementById('sidebar-overlay');
+                if (sidebar) sidebar.classList.add('open');
+                if (sidebarOverlay) sidebarOverlay.classList.add('active');
+            }, 300);
+        });
+        
+        logInfo('Seçim modal başlatıldı', 'initializeSelectionModal');
+        
+    } catch (error) {
+        logError('Seçim modal başlatma hatası', error, 'initializeSelectionModal');
+    }
+};
+
 // Helper function to format date in Turkish format
 const formatTurkishDate = (timestamp) => {
     try {
@@ -288,6 +359,9 @@ const shareOnFacebook = () => {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+    // Initialize selection modal first
+    initializeSelectionModal();
+    
     const map = L.map('map').setView([39.9334, 32.8597], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
@@ -313,31 +387,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Initialize info sidebar
     initializeInfoSidebar();
-
-    // Default KML loading function
-    const loadDefaultKML = async () => {
-        try {
-            logInfo('Varsayılan KML dosyası yükleniyor...', 'loadDefaultKML');
-            showMessage('Varsayılan KML dosyası yükleniyor...');
-            
-            const response = await fetch('./balikesir-sindirgi-10.08.25.kml');
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const kmlText = await response.text();
-            if (!kmlText || kmlText.trim().length === 0) {
-                throw new Error('KML dosyası boş');
-            }
-            
-            logInfo(`KML dosyası başarıyla yüklendi (${kmlText.length} karakter)`, 'loadDefaultKML');
-            parseKMLTextAndShowOnMap(kmlText, 'balikesir-sindirgi-10.08.25.kml');
-            
-        } catch (error) {
-            logError('Varsayılan KML yükleme hatası', error, 'loadDefaultKML');
-            showMessage(`Varsayılan KML yüklenemedi. Lütfen kendi dosyanızı seçin.`, true);
-        }
-    };
 
     // KML parsing function
     const parseKMLTextAndShowOnMap = (kmlText, sourceName) => {
@@ -485,8 +534,6 @@ document.addEventListener("DOMContentLoaded", () => {
             showMessage(`KML dosyası işlenirken hata oluştu: ${error.message}`, true);
         }
     };
-
-
 
     // Map fit function
     const fitMapToLocations = (locations) => {
@@ -1039,5 +1086,6 @@ document.addEventListener("DOMContentLoaded", () => {
         logInfo(`Sayfa yükleme süresi: ${loadTime.toFixed(2)}ms`, 'PERFORMANCE');
     });
     
-    loadDefaultKML();
+    // Note: loadDefaultKML() is now called from the modal selection
+    // instead of automatically on page load
 });
