@@ -573,6 +573,50 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initialize info sidebar
     initializeInfoSidebar();
 
+    // Check if we have parsed KML data from the modal selection
+    if (window.parsedKMLData) {
+        logInfo('Parse edilen KML verisi bulundu, UI güncelleniyor...', 'DOMContentLoaded');
+        
+        try {
+            // Extract data from parsed KML
+            const { locations: parsedLocations, startTime, endTime, duration: parsedDuration } = window.parsedKMLData;
+            
+            // Store locations globally
+            window.locations = parsedLocations;
+            window.currentLocationIndex = 0;
+            window.startTimeSeconds = startTime;
+            window.endTimeSeconds = endTime;
+            window.duration = parsedDuration;
+            window.currentTimeSeconds = startTime;
+            
+            // Update UI
+            updateTimeline();
+            updateMapMarkers();
+            fitMapToLocations(parsedLocations);
+            
+            showMessage(`Balıkesir KML: ${parsedLocations.length} konum yüklendi. Animasyon başlatılıyor...`);
+            
+            // Start animation after a short delay
+            setTimeout(() => {
+                try {
+                    window.isAnimationPaused = false;
+                    startAnimation();
+                    if (playPauseBtn) { playPauseBtn.innerHTML = '⏸️'; }
+                    logInfo('Animasyon otomatik başlatıldı', 'DOMContentLoaded');
+                } catch (animationError) {
+                    logError('Otomatik animasyon başlatma hatası', animationError, 'DOMContentLoaded');
+                    showMessage('Animasyon başlatılamadı, manuel olarak başlatabilirsiniz.', true);
+                }
+            }, 1000);
+            
+            // Clear the parsed data
+            delete window.parsedKMLData;
+            
+        } catch (error) {
+            logError('Parse edilen veri ile UI güncelleme hatası', error, 'DOMContentLoaded');
+        }
+    }
+
     // KML parsing function
     // This function is now defined above and called from loadDefaultKML
 
